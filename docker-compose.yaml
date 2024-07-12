@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+
+  #mongo:
+  #  image: mongo
+  #  ports:
+  #    - "27017:27017"
+  #  volumes:
+  #    - mongo_data:/data/db
+  #    - ./docker-init/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+
+  redis:
+    image: redis:7.2.4
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --requirepass 1q2w3e4r
+
+volumes:
+  mongo_data:
+  redis_data:
