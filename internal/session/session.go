@@ -50,10 +50,29 @@ func (s *Session) ReceiveMessages() {
 		messageType := binary.BigEndian.Uint16(messageBuffer[:2])
 		messagePayload := messageBuffer[2:]
 
-		s.handler.HandleMessage(s.ID, message.Message{
-			Type:    messageType,
-			Content: string(messagePayload),
-		})
+		switch {
+		case messageType > 10000:
+			s.handler.HandleMessage(s.ID, message.Message{
+				Type:    messageType,
+				Content: string(messagePayload),
+			})
+		case messageType < 10000:
+			s.HandleMessage(s.ID, message.Message{
+				Type:    messageType,
+				Content: string(messagePayload),
+			})
+		}
+	}
+}
+
+func (s *Session) HandleMessage(sessionId string, msg message.Message) {
+	switch msg.Type {
+	case 9999:
+		log.Printf("received from: %s, type: %d, message: %s", sessionId, msg.Type, msg.Content)
+	case 0:
+		log.Printf("received from: %s, type: %d, message: %s", sessionId, msg.Type, msg.Content)
+	default:
+		log.Printf("received from: %s, type: %d, message: %s", sessionId, msg.Type, msg.Content)
 	}
 }
 

@@ -47,7 +47,7 @@ func (h *Host) Listen() error {
 
 func (h *Host) HandleMessage(sessionId string, msg message.Message) {
 	switch msg.Type {
-	case 1:
+	case 10000:
 		log.Printf("received from: %s, type: %d, message: %s", sessionId, msg.Type, msg.Content)
 	default:
 		log.Printf("received from: %s, type: %d, message: %s", sessionId, msg.Type, msg.Content)
