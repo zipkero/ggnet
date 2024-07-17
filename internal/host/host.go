@@ -3,8 +3,8 @@ package host
 import (
 	"context"
 	"github.com/zipkero/ggnet/internal/handler"
-	"github.com/zipkero/ggnet/internal/message"
 	"github.com/zipkero/ggnet/internal/session"
+	"github.com/zipkero/ggnet/pkg/message"
 	"log"
 	"net"
 	"sync"
@@ -13,7 +13,7 @@ import (
 type Host struct {
 	endPoint *net.TCPAddr
 	sessions map[string]*session.Session
-	mu       sync.Mutex
+	mu       sync.RWMutex
 }
 
 func NewHost(endPoint string) (*Host, error) {
@@ -55,16 +55,46 @@ func (h *Host) HandleMessage(sessionId string, msg message.Message) {
 	}
 }
 
-func (h *Host) addSession(ss *session.Session) {
+func (h *Host) KickSession(sessionId string) error {
 	h.mu.Lock()
-	h.sessions[ss.ID] = ss
-	h.mu.Unlock()
+	defer h.mu.Unlock()
+
+	ss, err := h.getSession(sessionId)
+	if err != nil {
+		return err
+	}
+
+	ss.Cancel()
+	delete(h.sessions, sessionId)
+
+	return nil
 }
 
-func (h *Host) removeSession(sessionId string) {
-	h.mu.Lock()
-	delete(h.sessions, sessionId)
-	h.mu.Unlock()
+func (h *Host) UniCast(sessionId string, msg message.Message) error {
+	ss, err := h.getSession(sessionId)
+	if err != nil {
+		return err
+	}
+	ss.SendCh <- msg
+	return nil
+}
+
+func (h *Host) BroadCast(msg message.Message) {
+	h.mu.RLock()
+	sessions := make(map[string]*session.Session, len(h.sessions))
+	for k, v := range h.sessions {
+		sessions[k] = v
+	}
+	h.mu.RUnlock()
+
+	// TODO: need to worker pool
+	for _, ss := range sessions {
+		go func(ss *session.Session) {
+			h.mu.Lock()
+			ss.SendCh <- msg
+			h.mu.Unlock()
+		}(ss)
+	}
 }
 
 func (h *Host) handleClient(conn net.Conn) {
@@ -98,15 +128,26 @@ func (h *Host) handleClient(conn net.Conn) {
 	h.removeSession(ss.ID)
 }
 
-func (h *Host) KickSession(sessionId string) {
+func (h *Host) addSession(ss *session.Session) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	ss, ok := h.sessions[sessionId]
-	if !ok {
-		return
-	}
+	h.sessions[ss.ID] = ss
+}
 
-	ss.Cancel()
+func (h *Host) removeSession(sessionId string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	delete(h.sessions, sessionId)
+}
+
+func (h *Host) getSession(sessionId string) (*session.Session, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if ss, ok := h.sessions[sessionId]; ok {
+		return ss, nil
+	}
+	return nil, session.ErrSessionNotFound
 }

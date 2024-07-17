@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/zipkero/ggnet/internal/message"
+	"github.com/zipkero/ggnet/pkg/message"
 	"log"
 	"net"
 )

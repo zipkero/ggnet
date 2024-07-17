@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/zipkero/ggnet/internal/server"
+	"github.com/zipkero/ggnet/pkg/server"
 	"log"
 )
 

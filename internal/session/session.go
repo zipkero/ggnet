@@ -6,16 +6,17 @@ import (
 	"encoding/binary"
 	"github.com/google/uuid"
 	"github.com/zipkero/ggnet/internal/handler"
-	"github.com/zipkero/ggnet/internal/message"
+	"github.com/zipkero/ggnet/pkg/message"
 	"io"
 	"log"
 	"net"
 )
 
 type Session struct {
-	ID      string
+	ID     string
+	SendCh chan message.Message
+
 	conn    net.Conn
-	sendCh  chan message.Message
 	handler handler.SessionHandler
 	ctx     context.Context
 	cancel  context.CancelFunc
@@ -25,7 +26,7 @@ func NewSession(conn net.Conn, handler handler.SessionHandler, ctx context.Conte
 	ss := &Session{
 		conn:    conn,
 		ID:      uuid.New().String(),
-		sendCh:  make(chan message.Message),
+		SendCh:  make(chan message.Message),
 		handler: handler,
 		ctx:     ctx,
 		cancel:  cancel,
@@ -75,23 +76,12 @@ func (s *Session) ReceiveMessages() {
 	}
 }
 
-func (s *Session) HandleMessage(sessionId string, msg message.Message) {
-	switch msg.Type {
-	case 9999:
-		log.Printf("received from: %s, type: %d, message: %s", sessionId, msg.Type, msg.Content)
-	case 0:
-		log.Printf("received from: %s, type: %d, message: %s", sessionId, msg.Type, msg.Content)
-	default:
-		log.Printf("received from: %s, type: %d, message: %s", sessionId, msg.Type, msg.Content)
-	}
-}
-
 func (s *Session) SendMessages() {
 	for {
 		select {
 		case <-s.ctx.Done():
 			return
-		case msg := <-s.sendCh:
+		case msg := <-s.SendCh:
 			var msgBytes []byte
 			binary.BigEndian.PutUint16(msgBytes, msg.Type)
 			msgBytes = append(msgBytes, []byte(msg.Content)...)
@@ -110,6 +100,17 @@ func (s *Session) SendMessages() {
 				log.Println(err)
 			}
 		}
+	}
+}
+
+func (s *Session) HandleMessage(sessionId string, msg message.Message) {
+	switch msg.Type {
+	case 9999:
+		log.Printf("received from: %s, type: %d, message: %s", sessionId, msg.Type, msg.Content)
+	case 0:
+		log.Printf("received from: %s, type: %d, message: %s", sessionId, msg.Type, msg.Content)
+	default:
+		log.Printf("received from: %s, type: %d, message: %s", sessionId, msg.Type, msg.Content)
 	}
 }
 

@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"github.com/zipkero/ggnet/internal/message"
+	"github.com/zipkero/ggnet/pkg/message"
 )
 
 type SessionHandler interface {
