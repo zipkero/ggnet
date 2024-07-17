@@ -1,6 +1,7 @@
 package host
 
 import (
+	"context"
 	"github.com/zipkero/ggnet/internal/handler"
 	"github.com/zipkero/ggnet/internal/message"
 	"github.com/zipkero/ggnet/internal/session"
@@ -55,16 +56,24 @@ func (h *Host) HandleMessage(sessionId string, msg message.Message) {
 }
 
 func (h *Host) addSession(ss *session.Session) {
+	h.mu.Lock()
 	h.sessions[ss.ID] = ss
+	h.mu.Unlock()
+}
+
+func (h *Host) removeSession(sessionId string) {
+	h.mu.Lock()
+	delete(h.sessions, sessionId)
+	h.mu.Unlock()
 }
 
 func (h *Host) handleClient(conn net.Conn) {
 	var sessionHandler handler.SessionHandler = h
-	ss := session.NewSession(conn, sessionHandler)
 
-	h.mu.Lock()
+	ctx, cancel := context.WithCancel(context.Background())
+	ss := session.NewSession(conn, sessionHandler, ctx, cancel)
+
 	h.addSession(ss)
-	h.mu.Unlock()
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -85,4 +94,19 @@ func (h *Host) handleClient(conn net.Conn) {
 	if err != nil {
 		log.Println(err)
 	}
+
+	h.removeSession(ss.ID)
+}
+
+func (h *Host) KickSession(sessionId string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	ss, ok := h.sessions[sessionId]
+	if !ok {
+		return
+	}
+
+	ss.Cancel()
+	delete(h.sessions, sessionId)
 }
