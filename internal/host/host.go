@@ -97,6 +97,21 @@ func (h *Host) BroadCast(msg message.Message) {
 	}
 }
 
+func (h *Host) GetSessions() []*session.Session {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	sessions := make([]*session.Session, len(h.sessions))
+	for _, v := range h.sessions {
+		sessions = append(sessions, v)
+	}
+	return sessions
+}
+
+func (h *Host) FindSession(sessionId string) (*session.Session, error) {
+	return h.getSession(sessionId)
+}
+
 func (h *Host) handleClient(conn net.Conn) {
 	var sessionHandler handler.SessionHandler = h
 

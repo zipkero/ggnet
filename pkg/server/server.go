@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/zipkero/ggnet/internal/host"
+	"github.com/zipkero/ggnet/internal/session"
 	"github.com/zipkero/ggnet/pkg/message"
 )
 
@@ -14,6 +15,8 @@ type Host interface {
 	UniCast(sessionId string, msg message.Message) error
 	BroadCast(msg message.Message)
 	KickSession(sessionId string) error
+	GetSessions() []*session.Session
+	FindSession(sessionId string) (*session.Session, error)
 }
 
 func NewServer(endPoint string) (*Server, error) {
@@ -38,4 +41,25 @@ func (s *Server) UniCast(sessionId string, msg message.Message) error {
 
 func (s *Server) BroadCast(msg message.Message) {
 	s.host.BroadCast(msg)
+}
+
+func (s *Server) GetSessions() []*SessionInfo {
+	sessions := s.host.GetSessions()
+	sessionInfos := make([]*SessionInfo, 0, len(sessions))
+	for _, ss := range sessions {
+		sessionInfos = append(sessionInfos, &SessionInfo{
+			ID: ss.ID,
+		})
+	}
+	return sessionInfos
+}
+
+func (s *Server) FindSession(sessionId string) (*SessionInfo, error) {
+	ss, err := s.host.FindSession(sessionId)
+	if err != nil {
+		return nil, err
+	}
+	return &SessionInfo{
+		ID: ss.ID,
+	}, nil
 }
