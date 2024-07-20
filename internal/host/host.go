@@ -56,17 +56,13 @@ func (h *Host) HandleMessage(sessionId string, msg message.Message) {
 }
 
 func (h *Host) KickSession(sessionId string) error {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
 	ss, err := h.getSession(sessionId)
 	if err != nil {
 		return err
 	}
 
 	ss.Cancel()
-	delete(h.sessions, sessionId)
-
+	h.removeSession(sessionId)
 	return nil
 }
 
