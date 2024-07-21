@@ -1,52 +1,40 @@
 package main
 
 import (
-	"encoding/binary"
 	"fmt"
+	"github.com/zipkero/ggnet/pkg/client"
 	"github.com/zipkero/ggnet/pkg/message"
 	"log"
-	"net"
 )
 
 func main() {
-	conn, err := net.DialTCP("tcp", nil, &net.TCPAddr{
-		IP:   net.ParseIP("127.0.0.1"),
-		Port: 5000,
-	})
-	if err != nil {
-		panic(err)
+	// create client
+	c := client.NewClient("127.0.0.1", "5000")
+	if err := c.Connect(); err != nil {
+		log.Fatalln(err)
 	}
 
-	defer conn.Close()
-
-	sendMessage := &message.Message{
-		Type: 1,
-	}
-
-	for {
-		_, err = fmt.Scanln(&sendMessage.Content)
-		if err != nil {
-			log.Println(err)
+	// receive message
+	go func() {
+		for {
+			select {
+			case msg := <-c.Ch:
+				fmt.Println(msg.Content)
+			}
 		}
-		var typeBytes = make([]byte, 2)
-		binary.BigEndian.PutUint16(typeBytes, sendMessage.Type)
-		sendMessageBytes := append(typeBytes, []byte(sendMessage.Content)...)
+	}()
 
-		lengthBuffer := len(sendMessageBytes)
-		_, err = conn.Write([]byte{
-			byte(lengthBuffer >> 24),
-			byte(lengthBuffer >> 16),
-			byte(lengthBuffer >> 8),
-			byte(lengthBuffer),
-		})
-
-		if err != nil {
-			log.Println(err)
+	// send message
+	go func() {
+		sendMessage := message.Message{
+			Type: 1,
 		}
-
-		_, err = conn.Write(sendMessageBytes)
-		if err != nil {
-			log.Println(err)
+		for {
+			_, err := fmt.Scanln(&sendMessage.Content)
+			if err != nil {
+				log.Println(err)
+			}
+			c.Ch <- sendMessage
 		}
-	}
+	}()
 }
