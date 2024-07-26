@@ -6,20 +6,23 @@ import (
 	"github.com/zipkero/ggnet/pkg/message"
 	"log"
 	"net"
+	"sync"
 )
 
 type Client struct {
-	host string
-	port string
-	conn net.Conn
-	Ch   chan message.Message
+	host      string
+	port      string
+	conn      net.Conn
+	SendCh    chan message.Message
+	ReceiveCh chan message.Message
 }
 
 func NewClient(host, port string) *Client {
 	return &Client{
-		host: host,
-		port: port,
-		Ch:   make(chan message.Message),
+		host:      host,
+		port:      port,
+		SendCh:    make(chan message.Message),
+		ReceiveCh: make(chan message.Message),
 	}
 }
 
@@ -33,23 +36,55 @@ func (c *Client) Connect() error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
 
-	go c.receive()
-	go c.send()
+func (c *Client) Listen() error {
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go c.receive(&wg)
+	go c.send(&wg)
+
+	wg.Wait()
 
 	return nil
 }
 
-func (c *Client) receive() {
-	for {
+func (c *Client) receive(wg *sync.WaitGroup) {
+	defer wg.Done()
 
+	for {
+		lengthBuffer := make([]byte, 4)
+		_, err := c.conn.Read(lengthBuffer)
+		if err != nil {
+			log.Println(err)
+		}
+
+		messageLength := binary.BigEndian.Uint32(lengthBuffer)
+		messageBuffer := make([]byte, messageLength)
+
+		_, err = c.conn.Read(messageBuffer)
+		if err != nil {
+			log.Println(err)
+		}
+
+		messageType := binary.BigEndian.Uint16(messageBuffer[:2])
+		messageContent := string(messageBuffer[2:])
+
+		c.ReceiveCh <- message.Message{
+			Type:    messageType,
+			Content: messageContent,
+		}
 	}
 }
 
-func (c *Client) send() {
+func (c *Client) send(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	for {
 		select {
-		case msg := <-c.Ch:
+		case msg := <-c.SendCh:
 			var typeBytes = make([]byte, 2)
 			binary.BigEndian.PutUint16(typeBytes, msg.Type)
 			sendMessageBytes := append(typeBytes, []byte(msg.Content)...)

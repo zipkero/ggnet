@@ -47,6 +47,7 @@ func (s *Session) ReceiveMessages() {
 					return
 				}
 				log.Println(err)
+				continue
 			}
 
 			messageLength := binary.BigEndian.Uint32(lengthBuffer)

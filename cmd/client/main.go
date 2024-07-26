@@ -18,7 +18,7 @@ func main() {
 	go func() {
 		for {
 			select {
-			case msg := <-c.Ch:
+			case msg := <-c.ReceiveCh:
 				fmt.Println(msg.Content)
 			}
 		}
@@ -34,7 +34,12 @@ func main() {
 			if err != nil {
 				log.Println(err)
 			}
-			c.Ch <- sendMessage
+			c.SendCh <- sendMessage
 		}
 	}()
+
+	// listen
+	if err := c.Listen(); err != nil {
+		log.Fatalln(err)
+	}
 }
