@@ -58,6 +58,7 @@ func (s *Session) ReceiveMessages() {
 			_, err = io.ReadFull(s.conn, messageBuffer)
 			if err != nil {
 				log.Println(err)
+				continue
 			}
 
 			messageType := binary.BigEndian.Uint16(messageBuffer[:2])
@@ -103,6 +104,7 @@ func (s *Session) SendMessages() {
 			err := binary.Write(lengthBuffer, binary.BigEndian, length)
 			if err != nil {
 				log.Println(err)
+				continue
 			}
 
 			sendMessage := append(lengthBuffer.Bytes(), msgBytes...)
@@ -110,6 +112,7 @@ func (s *Session) SendMessages() {
 			_, err = s.conn.Write(sendMessage)
 			if err != nil {
 				log.Println(err)
+				continue
 			}
 		}
 	}
