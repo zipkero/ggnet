@@ -35,11 +35,13 @@ func NewSession(conn net.Conn, handler handler.SessionHandler, ctx context.Conte
 }
 
 func (s *Session) ReceiveMessages() {
-	for {
-		select {
-		case <-s.ctx.Done():
-			return
-		default:
+	log.Println("ReceiveMessages started")
+	defer log.Println("ReceiveMessages ended")
+
+	readCh := make(chan message.Message)
+
+	go func() {
+		for {
 			lengthBuffer := make([]byte, 4)
 			_, err := io.ReadFull(s.conn, lengthBuffer)
 			if err != nil {
@@ -61,23 +63,32 @@ func (s *Session) ReceiveMessages() {
 			messageType := binary.BigEndian.Uint16(messageBuffer[:2])
 			messagePayload := messageBuffer[2:]
 
+			readCh <- message.Message{
+				Type:    messageType,
+				Content: string(messagePayload),
+			}
+		}
+	}()
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case msg := <-readCh:
 			switch {
-			case messageType > 10000:
-				s.handler.HandleMessage(s.ID, message.Message{
-					Type:    messageType,
-					Content: string(messagePayload),
-				})
-			case messageType < 10000:
-				s.HandleMessage(s.ID, message.Message{
-					Type:    messageType,
-					Content: string(messagePayload),
-				})
+			case msg.Type > 10000:
+				s.handler.HandleMessage(s.ID, msg)
+			case msg.Type < 10000:
+				s.HandleMessage(s.ID, msg)
 			}
 		}
 	}
 }
 
 func (s *Session) SendMessages() {
+	log.Println("SendMessages started")
+	defer log.Println("SendMessages ended")
+
 	for {
 		select {
 		case <-s.ctx.Done():
