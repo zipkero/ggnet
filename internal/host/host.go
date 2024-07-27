@@ -130,7 +130,6 @@ func (h *Host) handleClient(conn net.Conn) {
 	}()
 
 	wg.Wait()
-	log.Println("handleClient: wg.Wait() returned")
 
 	err := conn.Close()
 	if err != nil {

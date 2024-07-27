@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"github.com/google/uuid"
 	"github.com/zipkero/ggnet/internal/handler"
 	"github.com/zipkero/ggnet/pkg/message"
@@ -45,9 +46,16 @@ func (s *Session) ReceiveMessages() {
 			lengthBuffer := make([]byte, 4)
 			_, err := io.ReadFull(s.conn, lengthBuffer)
 			if err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
+					log.Println("connection eof closed")
 					return
 				}
+
+				if errors.Is(err, net.ErrClosed) {
+					log.Println("connection error closed")
+					return
+				}
+
 				log.Println(err)
 				continue
 			}
