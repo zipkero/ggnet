@@ -56,7 +56,10 @@ func (c *Client) Listen() error {
 }
 
 func (c *Client) receive(wg *sync.WaitGroup, done chan struct{}) {
-	defer wg.Done()
+	defer func() {
+		wg.Done()
+		done <- struct{}{}
+	}()
 
 	for {
 		select {
@@ -68,7 +71,6 @@ func (c *Client) receive(wg *sync.WaitGroup, done chan struct{}) {
 			if err != nil {
 				if errors.Is(err, io.EOF) {
 					log.Println("connection eof closed")
-					done <- struct{}{}
 					return
 				}
 				log.Println(err)
@@ -81,7 +83,6 @@ func (c *Client) receive(wg *sync.WaitGroup, done chan struct{}) {
 			if err != nil {
 				if errors.Is(err, io.EOF) {
 					log.Println("connection eof closed")
-					done <- struct{}{}
 					return
 				}
 				log.Println(err)
