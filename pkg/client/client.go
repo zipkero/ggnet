@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"github.com/zipkero/ggnet/pkg/message"
+	"io"
 	"log"
 	"net"
 	"sync"
@@ -40,50 +41,70 @@ func (c *Client) Connect() error {
 }
 
 func (c *Client) Listen() error {
+	done := make(chan struct{})
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	go c.receive(&wg)
-	go c.send(&wg)
+	go c.receive(&wg, done)
+	go c.send(&wg, done)
 
 	wg.Wait()
+	close(done)
 
 	return nil
 }
 
-func (c *Client) receive(wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	for {
-		lengthBuffer := make([]byte, 4)
-		_, err := c.conn.Read(lengthBuffer)
-		if err != nil {
-			log.Println(err)
-		}
-
-		messageLength := binary.BigEndian.Uint32(lengthBuffer)
-		messageBuffer := make([]byte, messageLength)
-
-		_, err = c.conn.Read(messageBuffer)
-		if err != nil {
-			log.Println(err)
-		}
-
-		messageType := binary.BigEndian.Uint16(messageBuffer[:2])
-		messageContent := string(messageBuffer[2:])
-
-		c.ReceiveCh <- message.Message{
-			Type:    messageType,
-			Content: messageContent,
-		}
-	}
-}
-
-func (c *Client) send(wg *sync.WaitGroup) {
+func (c *Client) receive(wg *sync.WaitGroup, done chan struct{}) {
 	defer wg.Done()
 
 	for {
 		select {
+		case <-done:
+			return
+		default:
+			lengthBuffer := make([]byte, 4)
+			_, err := c.conn.Read(lengthBuffer)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					log.Println("connection eof closed")
+					done <- struct{}{}
+					return
+				}
+				log.Println(err)
+			}
+
+			messageLength := binary.BigEndian.Uint32(lengthBuffer)
+			messageBuffer := make([]byte, messageLength)
+
+			_, err = c.conn.Read(messageBuffer)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					log.Println("connection eof closed")
+					done <- struct{}{}
+					return
+				}
+				log.Println(err)
+			}
+
+			messageType := binary.BigEndian.Uint16(messageBuffer[:2])
+			messageContent := string(messageBuffer[2:])
+
+			c.ReceiveCh <- message.Message{
+				Type:    messageType,
+				Content: messageContent,
+			}
+		}
+	}
+}
+
+func (c *Client) send(wg *sync.WaitGroup, done chan struct{}) {
+	defer wg.Done()
+
+	for {
+		select {
+		case <-done:
+			return
 		case msg := <-c.SendCh:
 			var typeBytes = make([]byte, 2)
 			binary.BigEndian.PutUint16(typeBytes, msg.Type)
