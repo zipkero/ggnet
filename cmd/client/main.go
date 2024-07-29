@@ -26,16 +26,25 @@ func main() {
 
 	// send message
 	go func() {
-		sendMessage := message.Message{
-			Type: 1,
-		}
+		var messageType uint16
 		for {
-			_, err := fmt.Scanln(&sendMessage.Content)
+			_, err := fmt.Scanln(&messageType)
 			if err != nil {
 				log.Println(err)
+				continue
+			}
+			sendMessage := message.Message{
+				Type: messageType,
+			}
+
+			_, err = fmt.Scanln(&sendMessage.Content)
+			if err != nil {
+				log.Println(err)
+				continue
 			}
 			c.SendCh <- sendMessage
 		}
+
 	}()
 
 	// listen
